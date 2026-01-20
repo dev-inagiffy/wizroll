@@ -21,6 +21,12 @@ export async function checkUserSubscription(
   ctx: QueryCtx | MutationCtx,
   userId: string
 ): Promise<{ isPro: boolean; plan: "free" | "pro" }> {
+  // TEMPORARILY DISABLED: Make everything unlimited (like pro plan) for testing
+  // Remove this block and uncomment the code below to re-enable subscription checks
+  return { isPro: true, plan: "pro" };
+
+  /*
+  // ORIGINAL SUBSCRIPTION CHECK - COMMENTED OUT FOR TESTING
   const subscription = await ctx.db
     .query("subscriptions")
     .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -34,6 +40,7 @@ export async function checkUserSubscription(
   }
 
   return { isPro: false, plan: "free" };
+  */
 }
 
 // Get current user's subscription status
