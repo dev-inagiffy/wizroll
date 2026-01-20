@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Edit01Icon, Delete01Icon, Add01Icon } from "@hugeicons/core-free-icons";
+import { Delete01Icon, Add01Icon } from "@hugeicons/core-free-icons";
 import { useMutation } from "convex/react";
 import {
   AlertDialog,
@@ -30,11 +31,16 @@ import {
 import { Id } from "@/convex/_generated/dataModel";
 
 export function CommunityList() {
+  const router = useRouter();
   const communities = useQuery(api.communities.list);
   const deleteCommunity = useMutation(api.communities.remove);
 
   const handleDelete = async (id: Id<"communities">) => {
     await deleteCommunity({ id });
+  };
+
+  const handleRowClick = (id: string) => {
+    router.push(`/communities/${id}`);
   };
 
   if (!communities) {
@@ -69,12 +75,16 @@ export function CommunityList() {
           <TableHead>Members</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Created</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          <TableHead className="text-right w-[60px]"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {communities.map((community) => (
-          <TableRow key={community._id}>
+          <TableRow
+            key={community._id}
+            className="cursor-pointer hover:bg-muted/50"
+            onClick={() => handleRowClick(community._id)}
+          >
             <TableCell className="font-medium">{community.name}</TableCell>
             <TableCell>
               {community.currentMembers}/{community.maxMembers}
@@ -87,39 +97,32 @@ export function CommunityList() {
             <TableCell>
               {new Date(community.createdAt).toLocaleDateString()}
             </TableCell>
-            <TableCell className="text-right">
-              <div className="flex items-center justify-end gap-2">
-                <Button variant="ghost" size="icon-sm" asChild>
-                  <Link href={`/communities/${community._id}`}>
-                    <HugeiconsIcon icon={Edit01Icon} strokeWidth={2} />
-                  </Link>
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon-sm">
-                      <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Community</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete &quot;{community.name}
-                        &quot;? This action cannot be undone and will also
-                        delete all associated WhatsApp links.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => handleDelete(community._id)}
-                      >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon-sm" title="Delete">
+                    <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Community</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete &quot;{community.name}
+                      &quot;? This action cannot be undone and will also
+                      delete all associated WhatsApp links.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => handleDelete(community._id)}
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </TableCell>
           </TableRow>
         ))}

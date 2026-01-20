@@ -3,6 +3,7 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -15,7 +16,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Edit01Icon,
   Delete01Icon,
   Add01Icon,
   Copy01Icon,
@@ -36,6 +36,7 @@ import {
 import { useState } from "react";
 
 export function LinkList() {
+  const router = useRouter();
   const links = useQuery(api.publicJoinLinks.list);
   const deleteLink = useMutation(api.publicJoinLinks.remove);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -49,6 +50,10 @@ export function LinkList() {
     await navigator.clipboard.writeText(url);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleRowClick = (id: string) => {
+    router.push(`/links/${id}`);
   };
 
   if (!links) {
@@ -83,12 +88,16 @@ export function LinkList() {
           <TableHead>Community</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Created</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
+          <TableHead className="text-right w-[120px]"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {links.map((link) => (
-          <TableRow key={link._id}>
+          <TableRow
+            key={link._id}
+            className="cursor-pointer hover:bg-muted/50"
+            onClick={() => handleRowClick(link._id)}
+          >
             <TableCell className="font-mono">/j/{link.slug}</TableCell>
             <TableCell>
               {link.communityName || (
@@ -103,8 +112,8 @@ export function LinkList() {
             <TableCell>
               {new Date(link.createdAt).toLocaleDateString()}
             </TableCell>
-            <TableCell className="text-right">
-              <div className="flex items-center justify-end gap-2">
+            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-end gap-1">
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -127,11 +136,6 @@ export function LinkList() {
                   >
                     <HugeiconsIcon icon={Share01Icon} strokeWidth={2} />
                   </a>
-                </Button>
-                <Button variant="ghost" size="icon-sm" asChild title="Edit">
-                  <Link href={`/links/${link._id}`}>
-                    <HugeiconsIcon icon={Edit01Icon} strokeWidth={2} />
-                  </Link>
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>

@@ -9,9 +9,9 @@ export const getPublicJoinPage = query({
       found: v.literal(true),
       communityName: v.string(),
       logoUrl: v.optional(v.string()),
-      backgroundUrl: v.optional(v.string()),
       isActive: v.boolean(),
       hasAvailableLinks: v.boolean(),
+      totalMembers: v.number(),
     }),
     v.object({
       found: v.literal(false),
@@ -38,31 +38,34 @@ export const getPublicJoinPage = query({
       return { found: false as const };
     }
 
-    // Check if there are any non-exhausted links
-    const availableLinks = await ctx.db
+    // Get all community links to check availability and count members
+    const communityLinks = await ctx.db
       .query("communityLinks")
       .withIndex("by_community", (q) =>
         q.eq("communityId", publicLink.activeCommunityId!)
       )
       .collect();
 
-    const hasAvailableLinks = availableLinks.some((link) => !link.isExhausted);
+    const hasAvailableLinks = communityLinks.some((link) => !link.isExhausted);
 
-    // Resolve storage URLs
+    // Calculate total members across all links
+    const totalMembers = communityLinks.reduce(
+      (sum, link) => sum + link.memberCount,
+      0
+    );
+
+    // Resolve logo URL
     const logoUrl = community.logoStorageId
       ? await ctx.storage.getUrl(community.logoStorageId)
-      : null;
-    const backgroundUrl = community.backgroundStorageId
-      ? await ctx.storage.getUrl(community.backgroundStorageId)
       : null;
 
     return {
       found: true as const,
       communityName: community.name,
       logoUrl: logoUrl ?? undefined,
-      backgroundUrl: backgroundUrl ?? undefined,
       isActive: true,
       hasAvailableLinks,
+      totalMembers,
     };
   },
 });
