@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { useConvex } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,10 +21,12 @@ import {
 
 export default function SignupPage() {
   const router = useRouter();
+  const convex = useConvex();
   const { data: session, isPending } = authClient.useSession();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +41,30 @@ export default function SignupPage() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+
+    // Validate invite code first
+    if (!inviteCode.trim()) {
+      setError("Invite code is required");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Validate invite code with backend
+      const validation = await convex.query(api.inviteCode.validate, {
+        code: inviteCode,
+      });
+
+      if (!validation.valid) {
+        setError(validation.message || "Invalid invite code");
+        setIsLoading(false);
+        return;
+      }
+    } catch {
+      setError("Failed to validate invite code. Please try again.");
+      setIsLoading(false);
+      return;
+    }
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters");
@@ -57,7 +85,7 @@ export default function SignupPage() {
       }
 
       router.push("/dashboard");
-    } catch (err) {
+    } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
@@ -146,6 +174,23 @@ export default function SignupPage() {
               />
               <p className="text-xs text-muted-foreground">
                 Must be at least 8 characters
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inviteCode" className="text-sm">
+                Invite Code
+              </Label>
+              <Input
+                id="inviteCode"
+                type="text"
+                placeholder="Enter your invite code"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                required
+                className="h-9 font-mono uppercase"
+              />
+              <p className="text-xs text-muted-foreground">
+                Signups are invite-only. Contact admin for access.
               </p>
             </div>
           </CardContent>

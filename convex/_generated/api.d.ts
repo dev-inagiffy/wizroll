@@ -14,6 +14,7 @@ import type * as communities from "../communities.js";
 import type * as communityLinks from "../communityLinks.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
+import type * as inviteCode from "../inviteCode.js";
 import type * as joinEvents from "../joinEvents.js";
 import type * as publicApi from "../publicApi.js";
 import type * as publicJoinLinks from "../publicJoinLinks.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   communityLinks: typeof communityLinks;
   files: typeof files;
   http: typeof http;
+  inviteCode: typeof inviteCode;
   joinEvents: typeof joinEvents;
   publicApi: typeof publicApi;
   publicJoinLinks: typeof publicJoinLinks;
