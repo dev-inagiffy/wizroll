@@ -43,18 +43,19 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
           checkout({
             products: [
               {
-                productId: "pdt_8c0n2OZYwhf1sbu8htxMg",
-                slug: "premium-plan",
+                productId: "pdt_0NWg4s7AjXdoiJHs5XRWk",
+                slug: "pro-plan",
               },
             ],
-            successUrl: "/dashboard/success",
+            successUrl: `${siteUrl}/settings?upgraded=true`,
             authenticatedUsersOnly: true,
           }),
           portal(),
           webhooks({
             webhookKey: process.env.DODO_PAYMENTS_WEBHOOK_SECRET!,
             onPayload: async (payload) => {
-              console.log("Received webhook:", payload.type);
+              // Log webhook for debugging - actual handling done by @dodopayments/convex
+              console.log("Better Auth received webhook:", payload.type);
             },
           }),
           usage(),

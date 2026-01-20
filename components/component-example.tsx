@@ -148,7 +148,7 @@ function CardExample() {
     try {
       const { data: session, error } =
         await authClient.dodopayments.checkoutSession({
-          slug: "premium-plan",
+          slug: "pro-plan",
           referenceId: "order_123",
         });
 

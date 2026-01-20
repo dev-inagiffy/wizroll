@@ -10,8 +10,16 @@
 
 import type * as actions from "../actions.js";
 import type * as auth from "../auth.js";
+import type * as communities from "../communities.js";
+import type * as communityLinks from "../communityLinks.js";
+import type * as files from "../files.js";
 import type * as http from "../http.js";
+import type * as joinEvents from "../joinEvents.js";
+import type * as publicApi from "../publicApi.js";
+import type * as publicJoinLinks from "../publicJoinLinks.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as users from "../users.js";
+import type * as webhooks from "../webhooks.js";
 
 import type {
   ApiFromModules,
@@ -22,8 +30,16 @@ import type {
 declare const fullApi: ApiFromModules<{
   actions: typeof actions;
   auth: typeof auth;
+  communities: typeof communities;
+  communityLinks: typeof communityLinks;
+  files: typeof files;
   http: typeof http;
+  joinEvents: typeof joinEvents;
+  publicApi: typeof publicApi;
+  publicJoinLinks: typeof publicJoinLinks;
+  subscriptions: typeof subscriptions;
   users: typeof users;
+  webhooks: typeof webhooks;
 }>;
 
 /**
@@ -2028,6 +2044,79 @@ export declare const components: {
     adapterTest: {
       runCustomTests: FunctionReference<"action", "internal", any, any>;
       runTests: FunctionReference<"action", "internal", any, any>;
+    };
+  };
+  dodopayments: {
+    lib: {
+      checkout: FunctionReference<
+        "action",
+        "internal",
+        {
+          apiKey: string;
+          environment: "test_mode" | "live_mode";
+          payload: {
+            allowed_payment_method_types?: Array<string>;
+            billing_address?: {
+              city?: string;
+              country: string;
+              state?: string;
+              street?: string;
+              zipcode?: string;
+            };
+            billing_currency?: string;
+            confirm?: boolean;
+            customer?:
+              | { email: string; name?: string; phone_number?: string }
+              | { customer_id: string };
+            customization?: {
+              force_language?: string;
+              show_on_demand_tag?: boolean;
+              show_order_details?: boolean;
+              theme?: string;
+            };
+            discount_code?: string;
+            feature_flags?: {
+              allow_currency_selection?: boolean;
+              allow_discount_code?: boolean;
+              allow_phone_number_collection?: boolean;
+              allow_tax_id?: boolean;
+              always_create_new_customer?: boolean;
+            };
+            force_3ds?: boolean;
+            metadata?: Record<string, string>;
+            product_cart: Array<{
+              addons?: Array<{ addon_id: string; quantity: number }>;
+              amount?: number;
+              product_id: string;
+              quantity: number;
+            }>;
+            return_url?: string;
+            show_saved_payment_methods?: boolean;
+            subscription_data?: {
+              on_demand?: {
+                adaptive_currency_fees_inclusive?: boolean;
+                mandate_only: boolean;
+                product_currency?: string;
+                product_description?: string;
+                product_price?: number;
+              };
+              trial_period_days?: number;
+            };
+          };
+        },
+        { checkout_url: string }
+      >;
+      customerPortal: FunctionReference<
+        "action",
+        "internal",
+        {
+          apiKey: string;
+          dodoCustomerId: string;
+          environment: "test_mode" | "live_mode";
+          send_email?: boolean;
+        },
+        { portal_url: string }
+      >;
     };
   };
 };
