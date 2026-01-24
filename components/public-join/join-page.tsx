@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { JoinButton } from "./join-button";
+import { CountdownRedirect } from "./countdown-redirect";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -35,29 +35,45 @@ function formatMemberCount(count: number): string {
   return `${hundreds}+ members`;
 }
 
+// Collapsible description component
+function CollapsibleDescription({ description }: { description: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const charLimit = 120;
+  const shouldTruncate = description.length > charLimit;
+
+  const displayText = shouldTruncate && !isExpanded
+    ? description.substring(0, charLimit).trim() + "..."
+    : description;
+
+  return (
+    <div className="text-center mb-3 max-w-xs">
+      <p className="text-[14px] text-muted-foreground whitespace-pre-line">
+        {displayText}
+      </p>
+      {shouldTruncate && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-[13px] text-primary font-medium mt-1 hover:underline"
+        >
+          {isExpanded ? "Read less" : "Read more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function JoinPage({ slug }: JoinPageProps) {
   const pageData = useQuery(api.publicApi.getPublicJoinPage, { slug });
   const platform = usePlatform();
 
-  // WhatsApp-like font stack
-  const fontStyle = {
-    fontFamily:
-      platform === "ios"
-        ? '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif'
-        : '"Roboto", "Google Sans", system-ui, sans-serif',
-  };
-
   // Loading state
   if (!pageData) {
     return (
-      <div
-        className="min-h-svh flex flex-col items-center justify-center px-6 bg-[#F0F2F5] dark:bg-[#111B21]"
-        style={fontStyle}
-      >
+      <div className="min-h-svh flex flex-col items-center justify-center px-6 bg-background">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="h-24 w-24 rounded-full bg-[#D9DBE1] dark:bg-[#2A3942] mb-6" />
-          <div className="h-6 w-40 bg-[#D9DBE1] dark:bg-[#2A3942] rounded mb-3" />
-          <div className="h-4 w-24 bg-[#D9DBE1] dark:bg-[#2A3942] rounded" />
+          <div className="h-24 w-24 rounded-full bg-muted mb-6" />
+          <div className="h-6 w-40 bg-muted rounded mb-3" />
+          <div className="h-4 w-24 bg-muted rounded" />
         </div>
       </div>
     );
@@ -66,14 +82,11 @@ export function JoinPage({ slug }: JoinPageProps) {
   // Not found state
   if (!pageData.found) {
     return (
-      <div
-        className="min-h-svh flex flex-col items-center justify-center px-6 bg-[#F0F2F5] dark:bg-[#111B21]"
-        style={fontStyle}
-      >
+      <div className="min-h-svh flex flex-col items-center justify-center px-6 bg-background">
         <div className="text-center">
-          <div className="h-20 w-20 mx-auto mb-5 rounded-full bg-[#D9DBE1] dark:bg-[#2A3942] flex items-center justify-center">
+          <div className="h-20 w-20 mx-auto mb-5 rounded-full bg-muted flex items-center justify-center">
             <svg
-              className="h-10 w-10 text-[#8696A0]"
+              className="h-10 w-10 text-muted-foreground"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -86,10 +99,10 @@ export function JoinPage({ slug }: JoinPageProps) {
               />
             </svg>
           </div>
-          <h1 className="text-xl font-semibold mb-2 text-[#111B21] dark:text-[#E9EDEF]">
+          <h1 className="text-xl font-semibold mb-2 text-foreground">
             Link Not Found
           </h1>
-          <p className="text-sm text-[#667781] dark:text-[#8696A0]">
+          <p className="text-sm text-muted-foreground">
             This join link doesn&apos;t exist or has been deactivated.
           </p>
         </div>
@@ -97,13 +110,10 @@ export function JoinPage({ slug }: JoinPageProps) {
     );
   }
 
-  const { communityName, logoUrl, hasAvailableLinks, totalMembers } = pageData;
+  const { communityName, communityDescription, logoUrl, hasAvailableLinks, totalMembers } = pageData;
 
   return (
-    <div
-      className="min-h-svh flex flex-col bg-[#F0F2F5] dark:bg-[#111B21]"
-      style={fontStyle}
-    >
+    <div className="min-h-svh flex flex-col bg-background">
       {/* Main content area - takes remaining space */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         {/* Logo/Icon */}
@@ -114,59 +124,70 @@ export function JoinPage({ slug }: JoinPageProps) {
               alt={communityName}
               width={96}
               height={96}
-              className="rounded-full object-cover size-24 shadow-lg ring-4 ring-white/50 dark:ring-black/20"
+              className="rounded-full object-cover size-24 shadow-lg ring-4 ring-primary/20"
             />
           ) : (
-            <div className="h-24 w-24 rounded-full bg-[#00A884] flex items-center justify-center shadow-lg">
-              <svg
-                className="h-12 w-12 text-white"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-              </svg>
+            <div className="h-24 w-24 rounded-full bg-primary flex items-center justify-center shadow-lg">
+              <span className="text-4xl font-bold text-primary-foreground">
+                {communityName.charAt(0).toUpperCase()}
+              </span>
             </div>
           )}
         </div>
 
         {/* Community name */}
-        <h1 className="text-[22px] font-semibold text-center mb-1 text-[#111B21] dark:text-[#E9EDEF] tracking-tight">
+        <h1 className="text-[22px] font-semibold text-center mb-2 text-foreground tracking-tight">
           {communityName}
         </h1>
 
+        {/* Description with Read more/less */}
+        {communityDescription && (
+          <CollapsibleDescription description={communityDescription} />
+        )}
+
         {/* Member count */}
-        <p className="text-[13px] text-[#667781] dark:text-[#8696A0] mb-0.5">
+        <p className="text-[13px] text-muted-foreground mb-0.5">
           {formatMemberCount(totalMembers)}
         </p>
 
-        {/* Subtitle */}
-        <p className="text-[13px] text-[#667781] dark:text-[#8696A0]">
-          WhatsApp Community
-        </p>
+        {/* Subtitle with WhatsApp icon */}
+        <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12.001 2C6.478 2 2 6.478 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012.001 22C17.523 22 22 17.522 22 12S17.523 2 12.001 2z"
+              fill="#25D366"
+            />
+            <path
+              d="M12.001 20c-1.657 0-3.216-.508-4.5-1.375l-.324-.195-2.876.855.855-2.876-.195-.324A7.955 7.955 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.588 8-7.999 8zm4.604-5.924c-.252-.126-1.49-.735-1.721-.82-.231-.083-.4-.126-.568.126-.168.252-.651.82-.798.988-.147.168-.295.189-.547.063-.252-.126-1.063-.392-2.024-1.249-.748-.667-1.253-1.49-1.4-1.742-.147-.252-.016-.389.111-.514.113-.113.252-.294.378-.441.126-.147.168-.252.252-.42.084-.168.042-.315-.021-.441-.063-.126-.568-1.369-.778-1.875-.205-.49-.413-.424-.568-.432-.147-.008-.315-.01-.483-.01-.168 0-.441.063-.672.315-.231.252-.883.863-.883 2.104 0 1.241.904 2.44 1.03 2.608.126.168 1.779 2.715 4.31 3.805.602.26 1.072.415 1.438.531.604.192 1.154.165 1.59.1.485-.072 1.49-.609 1.7-1.197.21-.588.21-1.092.147-1.197-.063-.105-.231-.168-.483-.294z"
+              fill="white"
+            />
+          </svg>
+          <span>WhatsApp Community</span>
+        </div>
       </div>
 
       {/* Bottom action area */}
       <div className="px-5 pb-8 pt-4 w-full max-w-md mx-auto">
         {hasAvailableLinks ? (
-          <JoinButton slug={slug} platform={platform} />
+          <CountdownRedirect slug={slug} platform={platform} countdownSeconds={5} />
         ) : (
           <div
-            className={`p-4 bg-[#FFF3CD] dark:bg-[#332701] border border-[#FFECB5] dark:border-[#665200] ${
+            className={`p-4 bg-destructive/10 border border-destructive/20 ${
               platform === "ios" ? "rounded-xl" : "rounded-lg"
             }`}
           >
-            <p className="font-medium text-[#856404] dark:text-[#FFD60A] text-center text-sm">
+            <p className="font-medium text-destructive text-center text-sm">
               Community is currently full
             </p>
-            <p className="text-xs text-[#856404]/80 dark:text-[#FFD60A]/70 text-center mt-1">
+            <p className="text-xs text-destructive/80 text-center mt-1">
               Please check back later
             </p>
           </div>
         )}
 
         {/* Footer */}
-        <p className="text-[11px] text-[#8696A0] text-center mt-6">
-          Powered by <span className="font-medium">Wizroll</span>
+        <p className="text-[11px] text-muted-foreground text-center mt-6">
+          Powered by <span className="font-medium text-foreground">Wizroll</span>
         </p>
       </div>
     </div>

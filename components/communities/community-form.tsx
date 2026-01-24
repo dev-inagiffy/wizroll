@@ -19,10 +19,9 @@ interface CommunityFormProps {
   community?: {
     _id: Id<"communities">;
     name: string;
+    description?: string;
     logoStorageId?: Id<"_storage">;
-    backgroundStorageId?: Id<"_storage">;
     logoUrl?: string;
-    backgroundUrl?: string;
     maxMembers: number;
     isActive: boolean;
   };
@@ -35,35 +34,34 @@ export function CommunityForm({ community }: CommunityFormProps) {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const [name, setName] = useState(community?.name || "");
+  const [description, setDescription] = useState(community?.description || "");
   const [maxMembers, setMaxMembers] = useState(community?.maxMembers || 256);
   const [isActive, setIsActive] = useState(community?.isActive ?? true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Logo state
-  const [logoStorageId, setLogoStorageId] = useState<Id<"_storage"> | undefined>(
-    community?.logoStorageId
-  );
+  // Logo state - only use existing logoStorageId if it has a valid URL
+  const [logoStorageId, setLogoStorageId] = useState<
+    Id<"_storage"> | undefined
+  >(community?.logoUrl ? community?.logoStorageId : undefined);
   const [logoPreview, setLogoPreview] = useState<string | undefined>(
-    community?.logoUrl
+    community?.logoUrl,
   );
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoChanged, setLogoChanged] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // Background state
-  const [backgroundStorageId, setBackgroundStorageId] = useState<
-    Id<"_storage"> | undefined
-  >(community?.backgroundStorageId);
-  const [backgroundPreview, setBackgroundPreview] = useState<string | undefined>(
-    community?.backgroundUrl
-  );
-  const [isUploadingBackground, setIsUploadingBackground] = useState(false);
-  const backgroundInputRef = useRef<HTMLInputElement>(null);
+  const handleFileUpload = async (file: File): Promise<Id<"_storage">> => {
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Please upload an image file");
+    }
 
-  const handleFileUpload = async (
-    file: File,
-    type: "logo" | "background"
-  ): Promise<Id<"_storage">> => {
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("Image must be less than 5MB");
+    }
+
     // Get upload URL
     const uploadUrl = await generateUploadUrl();
 
@@ -75,11 +73,16 @@ export function CommunityForm({ community }: CommunityFormProps) {
     });
 
     if (!result.ok) {
-      throw new Error("Failed to upload file");
+      const errorText = await result.text().catch(() => "Unknown error");
+      throw new Error(`Failed to upload file: ${errorText}`);
     }
 
-    const { storageId } = await result.json();
-    return storageId as Id<"_storage">;
+    const data = await result.json();
+    if (!data.storageId) {
+      throw new Error("No storage ID returned from upload");
+    }
+
+    return data.storageId as Id<"_storage">;
   };
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,8 +98,9 @@ export function CommunityForm({ community }: CommunityFormProps) {
       setLogoPreview(previewUrl);
 
       // Upload to Convex
-      const storageId = await handleFileUpload(file, "logo");
+      const storageId = await handleFileUpload(file);
       setLogoStorageId(storageId);
+      setLogoChanged(true);
     } catch (err) {
       setError(parseConvexError(err));
       setLogoPreview(community?.logoUrl);
@@ -105,44 +109,12 @@ export function CommunityForm({ community }: CommunityFormProps) {
     }
   };
 
-  const handleBackgroundChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingBackground(true);
-    setError(null);
-
-    try {
-      // Create preview
-      const previewUrl = URL.createObjectURL(file);
-      setBackgroundPreview(previewUrl);
-
-      // Upload to Convex
-      const storageId = await handleFileUpload(file, "background");
-      setBackgroundStorageId(storageId);
-    } catch (err) {
-      setError(parseConvexError(err));
-      setBackgroundPreview(community?.backgroundUrl);
-    } finally {
-      setIsUploadingBackground(false);
-    }
-  };
-
   const removeLogo = () => {
     setLogoStorageId(undefined);
     setLogoPreview(undefined);
+    setLogoChanged(true);
     if (logoInputRef.current) {
       logoInputRef.current.value = "";
-    }
-  };
-
-  const removeBackground = () => {
-    setBackgroundStorageId(undefined);
-    setBackgroundPreview(undefined);
-    if (backgroundInputRef.current) {
-      backgroundInputRef.current.value = "";
     }
   };
 
@@ -156,11 +128,12 @@ export function CommunityForm({ community }: CommunityFormProps) {
         await updateCommunity({
           id: community._id,
           name,
-          logoStorageId: logoStorageId,
-          backgroundStorageId: backgroundStorageId,
-          removeLogoStorageId: !logoStorageId && !!community.logoStorageId,
-          removeBackgroundStorageId:
-            !backgroundStorageId && !!community.backgroundStorageId,
+          description: description || undefined,
+          // Only pass logoStorageId if it was changed
+          ...(logoChanged && {
+            logoStorageId: logoStorageId as string | undefined,
+          }),
+          removeLogoStorageId: logoChanged && !logoStorageId,
           maxMembers,
           isActive,
         });
@@ -168,8 +141,8 @@ export function CommunityForm({ community }: CommunityFormProps) {
       } else {
         const id = await createCommunity({
           name,
-          logoStorageId,
-          backgroundStorageId,
+          description: description || undefined,
+          logoStorageId: logoStorageId as string | undefined,
           maxMembers,
         });
         router.push(`/communities/${id}`);
@@ -182,7 +155,7 @@ export function CommunityForm({ community }: CommunityFormProps) {
   };
 
   return (
-    <Card>
+    <Card className="h-max">
       <CardHeader className="p-4 pb-2">
         <CardTitle className="text-base">
           {community ? "Edit Community" : "Create Community"}
@@ -288,59 +261,22 @@ export function CommunityForm({ community }: CommunityFormProps) {
             </div>
           </div>
 
-          {/* Background Upload */}
+          {/* Description */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Background Image (optional)</Label>
-            <div className="space-y-2">
-              {backgroundPreview ? (
-                <div className="relative w-full h-24 rounded-lg overflow-hidden border bg-muted">
-                  <Image
-                    src={backgroundPreview}
-                    alt="Background preview"
-                    fill
-                    className="object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={removeBackground}
-                    className="absolute top-1 right-1 p-1 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    <HugeiconsIcon icon={Delete02Icon} className="size-3" />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  onClick={() => backgroundInputRef.current?.click()}
-                  className="w-full h-24 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
-                >
-                  {isUploadingBackground ? (
-                    <div className="size-5 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <div className="flex flex-col items-center gap-1">
-                      <HugeiconsIcon
-                        icon={Upload02Icon}
-                        className="size-5 text-muted-foreground"
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        Click to upload background
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-              <input
-                ref={backgroundInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleBackgroundChange}
-                className="hidden"
-              />
-              {!backgroundPreview && (
-                <p className="text-[11px] text-muted-foreground">
-                  Recommended: 1200x400px or similar aspect ratio
-                </p>
-              )}
-            </div>
+            <Label htmlFor="description" className="text-xs">
+              Description (optional)
+            </Label>
+            <textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="A brief description of your community..."
+              rows={3}
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              This will be shown on your public join page and used for SEO
+            </p>
           </div>
 
           {community && (
@@ -364,7 +300,7 @@ export function CommunityForm({ community }: CommunityFormProps) {
           <div className="flex gap-2 pt-1">
             <Button
               type="submit"
-              disabled={isSubmitting || isUploadingLogo || isUploadingBackground}
+              disabled={isSubmitting || isUploadingLogo}
               size="sm"
               className="h-8"
             >

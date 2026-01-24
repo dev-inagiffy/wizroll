@@ -25,6 +25,7 @@ export default defineSchema({
   communities: defineTable({
     userId: v.string(),
     name: v.string(),
+    description: v.optional(v.string()),
     logoStorageId: v.optional(v.id("_storage")),
     backgroundStorageId: v.optional(v.id("_storage")),
     maxMembers: v.number(),

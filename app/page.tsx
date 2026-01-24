@@ -21,8 +21,9 @@ export default function LandingPage() {
             <Image
               src="/logo.png"
               alt="Wizroll"
-              width={32}
-              height={32}
+              width={40}
+              height={40}
+              quality={100}
               className="rounded-lg"
             />
             <span className="text-lg font-semibold">Wizroll</span>

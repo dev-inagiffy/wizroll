@@ -8,6 +8,7 @@ export const getPublicJoinPage = query({
     v.object({
       found: v.literal(true),
       communityName: v.string(),
+      communityDescription: v.optional(v.string()),
       logoUrl: v.optional(v.string()),
       isActive: v.boolean(),
       hasAvailableLinks: v.boolean(),
@@ -54,14 +55,20 @@ export const getPublicJoinPage = query({
       0
     );
 
-    // Resolve logo URL
-    const logoUrl = community.logoStorageId
-      ? await ctx.storage.getUrl(community.logoStorageId)
-      : null;
+    // Resolve logo URL (handle invalid storage IDs gracefully)
+    let logoUrl: string | null = null;
+    if (community.logoStorageId) {
+      try {
+        logoUrl = await ctx.storage.getUrl(community.logoStorageId);
+      } catch {
+        // Storage ID invalid, ignore
+      }
+    }
 
     return {
       found: true as const,
       communityName: community.name,
+      communityDescription: community.description,
       logoUrl: logoUrl ?? undefined,
       isActive: true,
       hasAvailableLinks,

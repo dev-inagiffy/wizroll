@@ -12,10 +12,9 @@ export const list = query({
       _creationTime: v.number(),
       userId: v.string(),
       name: v.string(),
+      description: v.optional(v.string()),
       logoStorageId: v.optional(v.id("_storage")),
-      backgroundStorageId: v.optional(v.id("_storage")),
       logoUrl: v.optional(v.string()),
-      backgroundUrl: v.optional(v.string()),
       maxMembers: v.number(),
       currentMembers: v.number(),
       isActive: v.boolean(),
@@ -33,19 +32,28 @@ export const list = query({
       .order("desc")
       .collect();
 
-    // Resolve storage URLs
     const communitiesWithUrls = await Promise.all(
       communities.map(async (community) => {
-        const logoUrl = community.logoStorageId
-          ? await ctx.storage.getUrl(community.logoStorageId)
-          : null;
-        const backgroundUrl = community.backgroundStorageId
-          ? await ctx.storage.getUrl(community.backgroundStorageId)
-          : null;
+        let logoUrl: string | null = null;
+        if (community.logoStorageId) {
+          try {
+            logoUrl = await ctx.storage.getUrl(community.logoStorageId);
+          } catch {
+            // Storage ID invalid, ignore
+          }
+        }
         return {
-          ...community,
+          _id: community._id,
+          _creationTime: community._creationTime,
+          userId: community.userId,
+          name: community.name,
+          description: community.description,
+          logoStorageId: community.logoStorageId,
           logoUrl: logoUrl ?? undefined,
-          backgroundUrl: backgroundUrl ?? undefined,
+          maxMembers: community.maxMembers,
+          currentMembers: community.currentMembers,
+          isActive: community.isActive,
+          createdAt: community.createdAt,
         };
       })
     );
@@ -62,10 +70,9 @@ export const get = query({
       _creationTime: v.number(),
       userId: v.string(),
       name: v.string(),
+      description: v.optional(v.string()),
       logoStorageId: v.optional(v.id("_storage")),
-      backgroundStorageId: v.optional(v.id("_storage")),
       logoUrl: v.optional(v.string()),
-      backgroundUrl: v.optional(v.string()),
       maxMembers: v.number(),
       currentMembers: v.number(),
       isActive: v.boolean(),
@@ -83,18 +90,27 @@ export const get = query({
       return null;
     }
 
-    // Resolve storage URLs
-    const logoUrl = community.logoStorageId
-      ? await ctx.storage.getUrl(community.logoStorageId)
-      : null;
-    const backgroundUrl = community.backgroundStorageId
-      ? await ctx.storage.getUrl(community.backgroundStorageId)
-      : null;
+    let logoUrl: string | null = null;
+    if (community.logoStorageId) {
+      try {
+        logoUrl = await ctx.storage.getUrl(community.logoStorageId);
+      } catch {
+        // Storage ID invalid, ignore
+      }
+    }
 
     return {
-      ...community,
+      _id: community._id,
+      _creationTime: community._creationTime,
+      userId: community.userId,
+      name: community.name,
+      description: community.description,
+      logoStorageId: community.logoStorageId,
       logoUrl: logoUrl ?? undefined,
-      backgroundUrl: backgroundUrl ?? undefined,
+      maxMembers: community.maxMembers,
+      currentMembers: community.currentMembers,
+      isActive: community.isActive,
+      createdAt: community.createdAt,
     };
   },
 });
@@ -102,8 +118,8 @@ export const get = query({
 export const create = mutation({
   args: {
     name: v.string(),
-    logoStorageId: v.optional(v.id("_storage")),
-    backgroundStorageId: v.optional(v.id("_storage")),
+    description: v.optional(v.string()),
+    logoStorageId: v.optional(v.string()),
     maxMembers: v.number(),
   },
   returns: v.id("communities"),
@@ -113,11 +129,9 @@ export const create = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Check subscription status
     const { isPro } = await checkUserSubscription(ctx, user._id);
     const limit = isPro ? PLAN_LIMITS.pro.communities : PLAN_LIMITS.free.communities;
 
-    // Check plan limit
     const existingCommunities = await ctx.db
       .query("communities")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
@@ -129,11 +143,24 @@ export const create = mutation({
       );
     }
 
+    // Validate logo storage ID if provided
+    let validLogoStorageId: Id<"_storage"> | undefined;
+    if (args.logoStorageId) {
+      try {
+        const url = await ctx.storage.getUrl(args.logoStorageId as Id<"_storage">);
+        if (url) {
+          validLogoStorageId = args.logoStorageId as Id<"_storage">;
+        }
+      } catch {
+        // Invalid storage ID, ignore
+      }
+    }
+
     const communityId = await ctx.db.insert("communities", {
       userId: user._id,
       name: args.name,
-      logoStorageId: args.logoStorageId,
-      backgroundStorageId: args.backgroundStorageId,
+      description: args.description,
+      logoStorageId: validLogoStorageId,
       maxMembers: args.maxMembers,
       currentMembers: 0,
       isActive: true,
@@ -148,10 +175,9 @@ export const update = mutation({
   args: {
     id: v.id("communities"),
     name: v.optional(v.string()),
-    logoStorageId: v.optional(v.id("_storage")),
-    backgroundStorageId: v.optional(v.id("_storage")),
+    description: v.optional(v.string()),
+    logoStorageId: v.optional(v.string()),
     removeLogoStorageId: v.optional(v.boolean()),
-    removeBackgroundStorageId: v.optional(v.boolean()),
     maxMembers: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
   },
@@ -169,35 +195,52 @@ export const update = mutation({
 
     const updates: Partial<{
       name: string;
+      description: string | undefined;
       logoStorageId: Id<"_storage"> | undefined;
-      backgroundStorageId: Id<"_storage"> | undefined;
       maxMembers: number;
       isActive: boolean;
     }> = {};
 
-    if (args.name !== undefined) updates.name = args.name;
-    if (args.logoStorageId !== undefined) {
-      // Delete old logo if exists
-      if (community.logoStorageId) {
-        await ctx.storage.delete(community.logoStorageId);
+    // Helper to safely delete storage
+    const safeDeleteStorage = async (storageId: Id<"_storage">) => {
+      try {
+        await ctx.storage.delete(storageId);
+      } catch {
+        // Storage may already be deleted
       }
-      updates.logoStorageId = args.logoStorageId;
+    };
+
+    if (args.name !== undefined) updates.name = args.name;
+    if (args.description !== undefined) updates.description = args.description;
+
+    // Handle logo update
+    if (args.logoStorageId !== undefined) {
+      // Validate new storage ID
+      let validNewLogoId: Id<"_storage"> | undefined;
+      try {
+        const url = await ctx.storage.getUrl(args.logoStorageId as Id<"_storage">);
+        if (url) {
+          validNewLogoId = args.logoStorageId as Id<"_storage">;
+        }
+      } catch {
+        // Invalid storage ID
+      }
+
+      if (validNewLogoId && validNewLogoId !== community.logoStorageId) {
+        // Delete old logo if exists
+        if (community.logoStorageId) {
+          await safeDeleteStorage(community.logoStorageId);
+        }
+        updates.logoStorageId = validNewLogoId;
+      }
     }
+
+    // Handle logo removal
     if (args.removeLogoStorageId && community.logoStorageId) {
-      await ctx.storage.delete(community.logoStorageId);
+      await safeDeleteStorage(community.logoStorageId);
       updates.logoStorageId = undefined;
     }
-    if (args.backgroundStorageId !== undefined) {
-      // Delete old background if exists
-      if (community.backgroundStorageId) {
-        await ctx.storage.delete(community.backgroundStorageId);
-      }
-      updates.backgroundStorageId = args.backgroundStorageId;
-    }
-    if (args.removeBackgroundStorageId && community.backgroundStorageId) {
-      await ctx.storage.delete(community.backgroundStorageId);
-      updates.backgroundStorageId = undefined;
-    }
+
     if (args.maxMembers !== undefined) updates.maxMembers = args.maxMembers;
     if (args.isActive !== undefined) updates.isActive = args.isActive;
 
@@ -220,12 +263,13 @@ export const remove = mutation({
       throw new Error("Community not found");
     }
 
-    // Delete stored images
+    // Delete stored logo
     if (community.logoStorageId) {
-      await ctx.storage.delete(community.logoStorageId);
-    }
-    if (community.backgroundStorageId) {
-      await ctx.storage.delete(community.backgroundStorageId);
+      try {
+        await ctx.storage.delete(community.logoStorageId);
+      } catch {
+        // Ignore if already deleted
+      }
     }
 
     // Delete all associated community links
